@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="sql-research" />
+        <module name="program-research" />
+        <module name="service-dataset" />
+        <module name="base" />
+        <module name="model-parquet" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="base" target="1.8" />
+      <module name="model-parquet" target="1.8" />
+      <module name="program-research" target="1.8" />
+      <module name="service-dataset" target="1.8" />
+      <module name="servicedataset" target="1.8" />
+      <module name="sql-research" target="1.8" />
+      <module name="test" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+</project>

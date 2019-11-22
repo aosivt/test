@@ -1,0 +1,7 @@
+# Project exclude paths
+/base/target/
+/model-parquet/target/
+/program-research/target/
+/service-dataset/target/
+/sql-research/target/
+/target/
