@@ -1,7 +1,5 @@
 package ru.ivt.sql.research.functions;
 
-
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.functions.AggregateFunction;
 
 import java.util.Iterator;
@@ -9,20 +7,6 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class ResultCollection extends AggregateFunction<Map<Integer, Float>, Map<Integer, Float>> {
-    @Override
-    public boolean requiresOver() {
-        return super.requiresOver();
-    }
-
-    @Override
-    public TypeInformation<Map<Integer, Float>> getResultType() {
-        return super.getResultType();
-    }
-
-    @Override
-    public TypeInformation<Map<Integer, Float>> getAccumulatorType() {
-        return super.getAccumulatorType();
-    }
 
     @Override
     public Map<Integer, Float> createAccumulator() {

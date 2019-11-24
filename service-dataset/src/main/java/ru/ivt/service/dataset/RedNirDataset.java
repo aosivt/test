@@ -14,7 +14,9 @@ import java.io.IOException;
 
 public class RedNirDataset {
 
-    private RedNirDataset(){}
+    private RedNirDataset() throws IllegalAccessException {
+        throw new IllegalAccessException();
+    }
 
     public static DataSet<RedNirSatellite> build(Configuration parameters, ExecutionEnvironment env, String path)
                                                                                                     throws IOException {

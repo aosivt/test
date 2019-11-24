@@ -27,11 +27,13 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import ru.ivt.model.RedNirSatellite;
 import ru.ivt.model.ResultIndex;
 import ru.ivt.model.SateliteImage;
-import ru.ivt.program.research.functions.NdviFunction;
+import ru.ivt.program.research.functions.*;
 import ru.ivt.service.dataset.RedNirDataset;
+import ru.ivt.service.dataset.RedNirWriteDateset;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,7 +48,10 @@ import java.util.Map;
 public class Research {
     // включать при условии если не хватает в локальном исполнении памяти на винчестере
     static {
-        System.setProperty("java.io.tmpdir", "/media/oshchepkovay/176C53FC3E3CCA8E2/temp/");
+//        System.setProperty("java.io.tmpdir", "/media/oshchepkovay/176C53FC3E3CCA8E2/temp/");
+
+
+
     }
 
     public static Integer scale = 10;
@@ -56,6 +61,7 @@ public class Research {
     public static String pathToParquet = "/user/claster/temp/parquet/";
     public static String pathResultToParquet = "/user/claster/flink/";
     public static final String formatString = "hdfs://claster@%s:%s%s%s";
+    public static final Map<String, org.apache.flink.table.functions.ScalarFunction> viFunction = new HashMap<>();
 
     // *************************************************************************
     //     PROGRAM
@@ -74,11 +80,19 @@ public class Research {
             portNameNodeData = args[2];
             parquetName = args[3];
             pathToParquet = args[4];
+            pathResultToParquet = args[5];
             pathInput = String.format("hdfs://claster@%s:%s%s%s",nameNodeData,portNameNodeData,pathToParquet,parquetName);
             pathOutput = String.format("hdfs://claster@%s:%s%s%s",nameNodeData,portNameNodeData,pathResultToParquet,parquetName);
         } else if (args.length == 1){
             scale = Integer.valueOf(args[0]);
         }
+        viFunction.put("ndvi",new NdviFunction());
+        viFunction.put("ipvi",new IpviFunction());
+        viFunction.put("dvi",new DviFunction());
+//        viFunction.put("savil1",new SaviL1Function());
+//        viFunction.put("savil05",new SaviL05Function());
+//        viFunction.put("savil0",new SaviL0Function());
+        viFunction.put("rvi",new RviFunction());
 
         final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
         final BatchTableEnvironment tEnv = BatchTableEnvironment.getTableEnvironment(env);
@@ -86,41 +100,55 @@ public class Research {
 
         Table t = tEnv.fromDataSet(RedNirDataset.build(parameters, env, pathInput));
 
-        ScalarFunction func = new NdviFunction();
-        tEnv.registerFunction("ndvi", func);
+        viFunction.forEach(tEnv::registerFunction);
 
-        tEnv.registerTable("table_data", t);
-        Table result = tEnv.sqlQuery("" +
-                " (select rowId, ndvi(dataRed, dataNIR) AS `result` " +
-                                        " from table_data " +
-                                        " where MOD(rowId," + scale +")=0 " +
-                                        ") " +
-                                        " ");
+        viFunction.keySet().forEach(viName->
+                {
+                    try {
+                        RedNirWriteDateset.Builder.getInstance()
+                                .settEnv(tEnv)
+                                .setNameFunction(viName)
+                                .setPathOutput(String.format("hdfs://claster@%s:%s/user/claster/temp/parquet/%s/%s/%s",
+                                                                nameNodeData,portNameNodeData,viName,scale,parquetName))
+                                .setRegisterTable(t)
+                                .build()
+                                .write();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                );
 
-        DataSet<Tuple2<Void, ResultIndex>> r =
-                tEnv.toDataSet(result, Row.class)
-                    .map(new MapFunction<Row, Tuple2<Void, ResultIndex>>() {
-                        @Override
-                        public Tuple2<Void, ResultIndex> map(Row row) throws Exception {
-                        Integer rowId = (Integer)row.getField(0);
-                        return new Tuple2<Void, ResultIndex>
-                                (null,new ResultIndex(rowId, Arrays.asList((Float[]) row.getField(1))));
-                        }
-                    });
-
-        Job jobResult = Job.getInstance();
-        jobResult.getConfiguration().set("parquet.avro.projection", ResultIndex.SCHEMA$.toString());
-        AvroParquetOutputFormat.setSchema(jobResult, ResultIndex.getClassSchema());
-        AvroParquetInputFormat.setAvroReadSchema(jobResult, ResultIndex.getClassSchema());
-        ParquetOutputFormat.setCompression(jobResult, CompressionCodecName.UNCOMPRESSED);
-        ParquetOutputFormat.setEnableDictionary(jobResult, true);
-        HadoopOutputFormat parquetFormat = new HadoopOutputFormat<>(new AvroParquetOutputFormat<ResultIndex>(), jobResult);
-
-        FileOutputFormat.setOutputPath(jobResult, new Path(pathOutput));
-        // Output & Execute
-        r.output(parquetFormat);
+//        tEnv.registerTable("table_data", t);
+//        Table result = tEnv.sqlQuery("" +
+//                " (select rowId, ndvi(dataRed, dataNIR) AS `result` " +
+//                                        " from table_data " +
+//                                        " where MOD(rowId," + scale +")=0 " +
+//                                        ") " +
+//                                        " ");
+//
+//        DataSet<Tuple2<Void, ResultIndex>> r =
+//                tEnv.toDataSet(result, Row.class)
+//                    .map(new MapFunction<Row, Tuple2<Void, ResultIndex>>() {
+//                        @Override
+//                        public Tuple2<Void, ResultIndex> map(Row row) throws Exception {
+//                        Integer rowId = (Integer)row.getField(0);
+//                        return new Tuple2<Void, ResultIndex>
+//                                (null,new ResultIndex(rowId, Arrays.asList((Float[]) row.getField(1))));
+//                        }
+//                    });
+//
+//        Job jobResult = Job.getInstance();
+//        jobResult.getConfiguration().set("parquet.avro.projection", ResultIndex.SCHEMA$.toString());
+//        AvroParquetOutputFormat.setSchema(jobResult, ResultIndex.getClassSchema());
+//        AvroParquetInputFormat.setAvroReadSchema(jobResult, ResultIndex.getClassSchema());
+//        ParquetOutputFormat.setCompression(jobResult, CompressionCodecName.UNCOMPRESSED);
+//        ParquetOutputFormat.setEnableDictionary(jobResult, true);
+//        HadoopOutputFormat parquetFormat = new HadoopOutputFormat<>(new AvroParquetOutputFormat<ResultIndex>(), jobResult);
+//
+//        FileOutputFormat.setOutputPath(jobResult, new Path(pathOutput));
+//        // Output & Execute
+//        r.output(parquetFormat);
         env.execute();
-
-
     }
 }
