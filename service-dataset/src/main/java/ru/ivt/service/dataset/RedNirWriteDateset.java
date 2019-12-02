@@ -18,6 +18,7 @@ import ru.ivt.model.ResultIndex;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public class RedNirWriteDateset {
@@ -79,7 +80,7 @@ public class RedNirWriteDateset {
 
     public void write() throws IOException {
         Table result = tEnv.sqlQuery("" +
-                " (select rowId, "+nameFunction+"(dataRed, dataNIR) AS `result` " +
+                " (select rowId,width,height,projection,geoTransform, "+nameFunction+"(dataRed, dataNIR) AS `result` " +
                 " from " + registerTable +
                 " where MOD(rowId," + scale +")=0 " +
                 ") " +
@@ -90,9 +91,16 @@ public class RedNirWriteDateset {
                         .map(new MapFunction<Row, Tuple2<Void, ResultIndex>>() {
                             @Override
                             public Tuple2<Void, ResultIndex> map(Row row) throws Exception {
-                                Integer rowId = (Integer)row.getField(0);
+
                                 return new Tuple2<Void, ResultIndex>
-                                        (null,new ResultIndex(rowId, Arrays.asList((Float[]) row.getField(1))));
+                                        (null,new ResultIndex(
+                                                (Integer)row.getField(0),
+                                                (Integer)row.getField(1),
+                                                (Integer)row.getField(2),
+                                                (String)row.getField(3),
+                                                (List<Double>)row.getField(4),
+                                                Arrays.asList((Float[]) row.getField(5)))
+                                        );
                             }
                         });
 
